@@ -1,0 +1,31 @@
+var a = false;
+
+if (a == false) {
+    print "True!";
+} else {
+    print "False!";
+}
+
+a = 11;
+var b = 6;
+
+if (a != 11) {
+    if (a == 10) {
+        print "Ten!";
+    } else {
+        print "Not ten!";
+    }
+} else if (b == 5) {
+    print "A is 11 and B is 5!";
+} else {
+    print "A is 11 but B is not 5!";
+}
+
+if (true)
+    if (false)
+        print "Inner!";
+    else
+        print "Proper!";
+else
+    print "Lower!";
+

@@ -1,0 +1,49 @@
+print "Hello, world!";
+
+print 1;
+print 1;
+print 2;
+print 3;
+print 5;
+print 8;
+
+var a = 37;
+print a;
+
+var b = a;
+print b;
+
+a = 42;
+print a;
+print b;
+
+a = b = 3;
+print a;
+print b;
+print a * b;
+
+a = null;
+var b = 7;
+print a;
+print b;
+
+{
+    var x = 10;
+    print x;
+
+    var a = 13;
+    print a;
+
+    a = 14;
+    print a;
+
+    {
+        b = 15;
+    }
+}
+
+{{ var a = 27; print a; }}
+{}{} {{}} 
+
+print a;
+print b;

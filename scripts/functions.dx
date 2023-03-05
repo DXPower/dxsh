@@ -1,0 +1,8 @@
+func foo() {
+    print "In foo()";
+}
+
+func bar(a, b) {
+    print "In bar(a, b)";
+    print "Another";
+}
