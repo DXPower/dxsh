@@ -48,7 +48,12 @@ std::generator<RuntimeStatus> Interpreter::ExecuteTopContext() {
             }
         } else {
             if (callstack.top().type == ContextType::Script) {
-                throw std::runtime_error("Returning from top-level not implemented");
+                errors.push_back(Error{ 
+                      .line = 0
+                    , .message = "Returning from top-level not implemented"});
+
+                co_yield RuntimeStatus::Error;
+                co_return;
             }
 
             // Continue to exit the current function until we reach the callstack of said function
