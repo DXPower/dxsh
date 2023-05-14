@@ -12,7 +12,6 @@ add_library(dxsh_core)
 target_link_libraries(dxsh_core PRIVATE ${CMAKE_SOURCE_DIR}/deps/yomm2.lib)
 target_sources(dxsh_core PRIVATE
   ${CMAKE_SOURCE_DIR}/src/core/AST.cpp
-  ${CMAKE_SOURCE_DIR}/src/core/Defer.cpp
   ${CMAKE_SOURCE_DIR}/src/core/Environment.cpp
   ${CMAKE_SOURCE_DIR}/src/core/ExecutionContext.cpp
   ${CMAKE_SOURCE_DIR}/src/core/Interpreter.cpp

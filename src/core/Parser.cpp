@@ -191,7 +191,7 @@ auto Parser::FuncStmt() -> StmtStore {
     TryConsume(
           BraceR
         , std::format(
-              "Expected '}}' after function parameter list, got '{}' instead"
+              "Expected '}}' after function definition, got '{}' instead"
             , Peek().GetRepresentation()
         )
     );
@@ -270,7 +270,35 @@ auto Parser::Unary() -> ExprStore {
         );
     }
 
-    return Primary();
+    return Call();
+}
+
+auto Parser::Call() -> ExprStore {
+    auto primary = Primary();
+
+    if (not MatchConsume(TokenType::ParenL)) {
+        return primary;
+    }
+
+    const auto& parenL = this->Previous();
+    auto args = Arguments();
+
+    TryConsume(TokenType::ParenR, std::format("Expected ) after function call arguments, got '{}' instead", Peek().GetRepresentation()));
+
+    return std::make_unique<CallExpr>(std::move(primary), std::move(args), parenL);
+}
+
+auto Parser::Arguments() -> std::vector<ExprStore> {
+    using enum TokenType;
+
+    std::vector<ExprStore> args = ParseList(Comma, [this]() -> std::optional<ExprStore> {
+        if (Peek().type != ParenR && Peek().type != Comma)
+            return Expression();
+        else
+            return std::nullopt;
+    });
+    
+    return args;
 }
 
 auto Parser::Primary() -> ExprStore {

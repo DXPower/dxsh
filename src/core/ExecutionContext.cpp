@@ -6,8 +6,7 @@ using namespace dxsh;
 using namespace core;
 
 ExecutionStatus ExecutionContext::ExecuteOne(Interpreter& interpreter) {
-    // If we are already at the end of a block, close it out
-    // This can occur if a block statement is the last statement of this block
+    // Close out this execution block once we reach the end
     if (curPos >= statements.size())
         return ExecutionStatus::CLOSE;
 
@@ -18,20 +17,10 @@ ExecutionStatus ExecutionContext::ExecuteOne(Interpreter& interpreter) {
 
     curPos++;
 
-    // The statement itself handles pushing a new context,
-    // however we need to exit early still to transfer
-    // execution to the new context
-    if (effect == StatementEffect::OpenContext)
-        return ExecutionStatus::SUCCESS;
-
-    // Triggered by break statements
+    // Triggered by break or return statements
     if (effect == StatementEffect::CloseContext)
         return ExecutionStatus::CLOSE;
 
     // If we reach the end of this context, trigger a pop of the callstack
-
-    if (curPos < statements.size())
-        return ExecutionStatus::SUCCESS;
-    else
-        return ExecutionStatus::CLOSE;
+    return ExecutionStatus::SUCCESS;
 }

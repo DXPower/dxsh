@@ -85,6 +85,26 @@ namespace dxsh {
             { }
         };
 
-        register_classes(Expr, BinaryExpr, UnaryExpr, GroupingExpr, LiteralExpr, AssignmentExpr);
+        struct CallExpr : Expr {
+            std::unique_ptr<Expr> function;
+            std::vector<std::unique_ptr<Expr>> args;
+            Token parenL;
+
+            CallExpr(decltype(function)&& func, decltype(args)&& args, const Token& parenL)
+                : function(std::move(func))
+                , args(std::move(args))
+                , parenL(parenL)
+            { }
+        };
+
+        register_classes(
+              Expr
+            , BinaryExpr
+            , UnaryExpr
+            , GroupingExpr
+            , LiteralExpr
+            , AssignmentExpr
+            , CallExpr
+        );
     }
 }

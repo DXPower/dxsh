@@ -1,11 +1,11 @@
 #include "core/AST.hpp"
-#include "core/Environment.hpp"
-#include "core/Error.hpp"
 
 namespace dxsh {
     namespace core {
+        class Interpreter;
+
         namespace AstMethods {
-            Value  Evaluate(const Expr& expr, Environment& env, ErrorContext& errors);
+            Value Evaluate(const Expr& expr, Interpreter& interpreter);
         }
     }
 }

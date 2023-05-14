@@ -1,11 +1,11 @@
 #pragma once
 
+#include <functional>
 #include <span>
 #include <sstream>
 #include <stack>
 #include <generator.hpp>
 
-#include "core/Defer.hpp"
 #include "core/Error.hpp"
 #include "core/Environment.hpp"
 #include "core/ExecutionContext.hpp"
@@ -14,29 +14,29 @@
 namespace dxsh {
     namespace core {
         enum class RuntimeStatus {
-            Run, Finish, Error
+            RanStatement, ClosedContext, Error
         };
-
-        class DeferManager;
 
         class Interpreter {
             std::stringstream input, output;
             std::stack<ExecutionContext> callstack;
-            std::unique_ptr<DeferManager> defers;
-            // std::vector<Statement> statements;
+            std::function<void(void)> interpreterInterface;
 
             public:
-            Interpreter();
-
             ErrorContext errors;
 
             void LoadProgram(std::span<const std::unique_ptr<Statement>> statements);
-            std::generator<RuntimeStatus> ExecuteTop(std::span<const std::unique_ptr<Statement>> statements);
+            void LoadInterface(std::function<void(void)> interface);
+
+            void RunInterface();
+
+            std::generator<RuntimeStatus> ExecuteTopContext();
             
-            void PushContext(const ExecutionContext& ctx);
+            ExecutionContext& PushContext(std::span<const std::unique_ptr<Statement>> statements);
             void PopContext();
             
             Environment& GetCurEnvironment();
+            
 
             void GiveInput(std::string_view input);
             std::string TakeInput();

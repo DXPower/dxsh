@@ -17,7 +17,7 @@
 //                  ( "else" block )?
 // funcstmt       → "func" IDENTIFIER "(" IDENTIFIER* ")" "{" block* "}"
 // exprstmt       → expression ";"
-// expression     → assignment 
+// expression     → assignment ;
 // assignment     → expression "=" assignment
 //                | equality                 
 // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -25,7 +25,9 @@
 // term           → factor ( ( "-" | "+" ) factor )* ;
 // factor         → unary ( ( "/" | "*" ) unary )* ;
 // unary          → ( "not" | "-" ) unary
-//                | primary ;
+//                | call ;
+// call           → primary( "(" arguments? ")" ) ;
+// arguments      → expression ( "," expression )* ;
 // primary        → INTEGER | DECIMAL | STRING | "true" | "false" | "null" | IDENTIFIER
 //                | "(" expression ")" ;
 
@@ -56,21 +58,23 @@ namespace dxsh {
 
             auto Parse(std::span<const Token> tokens) -> std::vector<StmtStore>;
 
-            StmtStore Block();
-            StmtStore Statement();
-            StmtStore PrintStmt();
-            StmtStore VarDeclStmt();
-            StmtStore IfStmt();
-            StmtStore FuncStmt();
-            StmtStore ExprStmt();
-            ExprStore Expression();
-            ExprStore Assignment();
-            ExprStore Equality();
-            ExprStore Comparison();
-            ExprStore Term();
-            ExprStore Factor();
-            ExprStore Unary();
-            ExprStore Primary();
+            auto Block()       -> StmtStore;
+            auto Statement()   -> StmtStore;
+            auto PrintStmt()   -> StmtStore;
+            auto VarDeclStmt() -> StmtStore;
+            auto IfStmt()      -> StmtStore;
+            auto FuncStmt()    -> StmtStore;
+            auto ExprStmt()    -> StmtStore;
+            auto Expression()  -> ExprStore;
+            auto Assignment()  -> ExprStore;
+            auto Equality()    -> ExprStore;
+            auto Comparison()  -> ExprStore;
+            auto Term()        -> ExprStore;
+            auto Factor()      -> ExprStore;
+            auto Unary()       -> ExprStore;
+            auto Call()        -> ExprStore;
+            auto Arguments()   -> std::vector<ExprStore>;
+            auto Primary()     -> ExprStore;
 
             const Token& Advance();
             const Token& TryConsume(TokenType type, std::string_view error);
@@ -117,6 +121,7 @@ namespace dxsh {
             } {
                 using Element_t = typename std::invoke_result_t<decltype(elementGen)>::value_type;
                 std::vector<Element_t> elements;
+                std::size_t delimCount = 0;
 
                 while (true) {
                     auto element = elementGen();
@@ -129,7 +134,18 @@ namespace dxsh {
                     if (Peek().type != delimeter)
                         break;
 
+                    delimCount++;
                     Advance();
+                }
+
+                if (elements.size() > 0 && elements.size() == delimCount) {
+                    throw Error{
+                          .line = Previous().line
+                        , .message = std::format(
+                              "Unexpected {} in list"
+                            , Previous().GetRepresentation()
+                        )
+                    };
                 }
 
                 return elements;

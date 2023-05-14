@@ -16,25 +16,28 @@ void shell::InterpreterInterface(
 
     interpreter.LoadProgram(statements);
 
-    for (auto res : interpreter.ExecuteTop(statements)) {
-        switch (res) {
-            case RuntimeStatus::Run:
-                // term.Println("Ran!");
-                term.Print(interpreter.TakeOutput());
-                break;
-            case RuntimeStatus::Finish:
-                term.Println("Finish!");
-                break;
-            case RuntimeStatus::Error:
-                term.PrintErrors(interpreter.errors);
-                interpreter.ResetIO();
-
-                if (quitOnError)
+    interpreter.LoadInterface([&interpreter, &term, quitOnError]() {
+        for (auto res : interpreter.ExecuteTopContext()) {
+            switch (res) {
+                case RuntimeStatus::RanStatement:
+                    // term.Println("Ran!");
+                    term.Print(interpreter.TakeOutput());
+                    break;
+                case RuntimeStatus::ClosedContext:
                     return;
+                case RuntimeStatus::Error:
+                    term.PrintErrors(interpreter.errors);
+                    interpreter.ResetIO();
 
-                break;
+                    if (quitOnError)
+                        throw std::runtime_error("Interpreter quitting...");
+
+                    break;
+            }
         }
-    }
+    });
+
+    interpreter.RunInterface();
 }
 
 void shell::REPL(Terminal& term) {

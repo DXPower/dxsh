@@ -1,9 +1,9 @@
 #include <stdexcept>
 #include <utility>
 #include "core/AstMethods/Evaluate.hpp"
-#include "core/Defer.hpp"
 #include "core/Environment.hpp"
 #include "core/Error.hpp"
+#include "core/Interpreter.hpp" // Needed to recurse back to top from call expressions
 #include "core/Value.hpp"
 #include "magic_enum/magic_enum.hpp"
 
@@ -159,6 +159,7 @@ static bool EvaluateEquality(const Value& left, const Value& right, const Token&
                 case Boolean:    return left.GetAs<bool>() == right.GetAs<bool>();
                 case Null:       return true;
                 case Lvalue:     throw std::runtime_error("Unextracted lvalue in equality");
+                case Function:   throw std::runtime_error("Function unhandled in equality");
             }
         }
 
@@ -202,28 +203,14 @@ static Error BinaryConversionError(std::string_view name, const Token& op, const
     };
 }
 
-declare_method(Value, Evaluate, (virtual_<const Expr&>, Environment*));
+declare_method(Value, Evaluate, (virtual_<const Expr&>, Interpreter*));
 
-static Value GetDeferredOrEval(const Expr& expr, Environment& env) {
-    if (auto* value = DeferManager::Inst().GetDeferValue(expr); value != nullptr) {
-        return *value;
-    } else {
-        return ::Evaluate(expr, &env);
-    }
-}
-
-define_method(Value, Evaluate, (const BinaryExpr& expr, Environment* env)) {
+define_method(Value, Evaluate, (const BinaryExpr& expr, Interpreter* interp)) {
     using enum TokenClass;
 
-    Value left = env->ExtractFromLV(GetDeferredOrEval(*expr.left, *env));
-    DeferGuard guardL(*expr.left, left);
-
-    // No guard necessary for right because it's the last value calculated
-    // Any bail-out (via exception) will not have a completed value here
-    // So it is useless to try to defer anyways.
-    Value right = env->ExtractFromLV(GetDeferredOrEval(*expr.right, *env));
-
-    DeferGuard::MarkSuccess(guardL);
+    auto& env = interp->GetCurEnvironment();
+    Value left = env.ExtractFromLV(::Evaluate(*expr.left, interp));
+    Value right = env.ExtractFromLV(::Evaluate(*expr.right, interp));
 
     // Special case equality to its own function
     if (expr.op.type == TokenType::EqualEqual || expr.op.type == TokenType::BangEqual) {
@@ -253,11 +240,11 @@ define_method(Value, Evaluate, (const BinaryExpr& expr, Environment* env)) {
     }
 }
 
-define_method(Value, Evaluate, (const UnaryExpr& expr, Environment* env)) {
+define_method(Value, Evaluate, (const UnaryExpr& expr, Interpreter* interp)) {
     using enum TokenType;
 
-    // Don't need to guard because it's the only value we calculate
-    const Value operand = env->ExtractFromLV(GetDeferredOrEval(*expr.operand, *env));
+    auto& env = interp->GetCurEnvironment();
+    const Value operand = env.ExtractFromLV(::Evaluate(*expr.operand, interp));
 
     switch (expr.op.type) {
         case Minus: {
@@ -297,18 +284,18 @@ define_method(Value, Evaluate, (const UnaryExpr& expr, Environment* env)) {
     }
 }
 
-define_method(Value, Evaluate, (const GroupingExpr&, Environment*)) {
+define_method(Value, Evaluate, (const GroupingExpr&, Interpreter*)) {
     throw std::runtime_error("GroupingExpr unused");
     // return Evaluate(*expr.expr, env);
 }
 
-define_method(Value, Evaluate, (const LiteralExpr& expr, Environment*)) {
+define_method(Value, Evaluate, (const LiteralExpr& expr, Interpreter*)) {
     return expr.value;
 }
 
-define_method(Value, Evaluate, (const AssignmentExpr& expr, Environment* env)) {
-    Value target = GetDeferredOrEval(*expr.target, *env);
-    DeferGuard guardTarget(*expr.target, target);
+define_method(Value, Evaluate, (const AssignmentExpr& expr, Interpreter* interp)) {
+    auto& env = interp->GetCurEnvironment();
+    Value target = ::Evaluate(*expr.target, interp);
 
     if (auto type = target.GetType(); type != ValueType::Lvalue) {
         throw Error{
@@ -321,18 +308,69 @@ define_method(Value, Evaluate, (const AssignmentExpr& expr, Environment* env)) {
     }
 
     const Lvalue& lvalue = target.GetAs<Lvalue>();
-    VarDecl* var = env->GetVar(lvalue.name);
+    VarDecl* var = env.GetVar(lvalue.name);
     
     if (var == nullptr)
         throw UndefinedVariableError(lvalue.lineOfRef, lvalue.name);
 
-    // Don't need to guard this because it's the last value we calculate
-    const Value rvalue = env->ExtractFromLV(Evaluate(*expr.value, env));
+    const Value rvalue = env.ExtractFromLV(::Evaluate(*expr.value, interp));
     var->Set(rvalue, expr.equal.line);
 
     return rvalue;
 }
 
-Value AstMethods::Evaluate(const Expr& expr, Environment& env, ErrorContext&) {
-    return ::Evaluate(expr, &env);
+define_method(Value, Evaluate, (const CallExpr& call, Interpreter* interp)) {
+    auto& env = interp->GetCurEnvironment();
+
+    // Evaluate the function we're actually calling
+    Value val = env.ExtractFromLV(::Evaluate(*call.function, interp));
+
+    if (val.GetType() != ValueType::Function) {
+        throw Error{
+              .line = call.parenL.line
+            , .message = std::format(
+                  "Attempt to treat {} as function in call expression"
+                , val.ToPrettyString()
+            )
+        };
+    }
+
+    const auto& function = val.GetAs<Function>();
+
+    // Check that the arity (num of params) matches
+    if (function.Arity() != call.args.size()) {
+        throw Error{
+              .line = call.parenL.line
+            , .message = std::format(
+                  "Number of arguments ({}) to function call does not match number of parameters ({})."
+                  "\nNote: Function defined on line {}."
+                , call.args.size(), function.Arity(), function.line
+            )
+        };
+    }
+
+    // Evaluate the arguments from left to right
+    std::vector<Value> argVals;
+    argVals.reserve(function.Arity());
+
+    for (const auto& argExpr : call.args) {
+        argVals.push_back(env.ExtractFromLV(::Evaluate(*argExpr, interp)));
+    }
+
+    // Push a new execution context with the statements of this function
+    auto& ctx = interp->PushContext(function.statements);
+
+    // Populate the parameters with values
+    for (std::size_t i = 0; i < function.Arity(); i++) {
+        ctx.environment.CreateOrAssignVar(function.params[i], argVals[i], function.line);
+    }
+
+    // Execute the body of the function
+    interp->RunInterface();
+
+    return Value{};
+}
+
+Value AstMethods::Evaluate(const Expr& expr, Interpreter& interpreter) {
+    return ::Evaluate(expr, &interpreter);
 }

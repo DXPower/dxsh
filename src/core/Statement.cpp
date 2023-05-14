@@ -1,7 +1,9 @@
+#include <ranges>
+#include "magic_enum/magic_enum.hpp"
+
 #include "core/Interpreter.hpp"
 #include "core/Statement.hpp"
 #include "core/AstMethods/Evaluate.hpp"
-#include "magic_enum/magic_enum.hpp"
 
 using namespace std::string_literals;
 using namespace std::string_view_literals;
@@ -22,12 +24,12 @@ register_classes(
 declare_method(StatementEffect, EvaluateStatement, (virtual_<const Statement&>, Interpreter*));
 
 define_method(StatementEffect, EvaluateStatement, (const ExprStatement& stmt, Interpreter* interpreter)) {
-    AstMethods::Evaluate(*stmt.expr, interpreter->GetCurEnvironment(), interpreter->errors);
+    AstMethods::Evaluate(*stmt.expr, *interpreter);
     return StatementEffect::None;
 }
 
 define_method(StatementEffect, EvaluateStatement, (const VarDeclStatement& stmt, Interpreter* interpreter)) {
-    Value res = AstMethods::Evaluate(*stmt.value, interpreter->GetCurEnvironment(), interpreter->errors);
+    Value res = AstMethods::Evaluate(*stmt.value, *interpreter);
     res = interpreter->GetCurEnvironment().ExtractFromLV(res);
 
     interpreter->GetCurEnvironment().CreateOrAssignVar(
@@ -40,7 +42,7 @@ define_method(StatementEffect, EvaluateStatement, (const VarDeclStatement& stmt,
 }
 
 define_method(StatementEffect, EvaluateStatement, (const PrintStatement& stmt, Interpreter* interpreter)) {
-    Value res = AstMethods::Evaluate(*stmt.expr, interpreter->GetCurEnvironment(), interpreter->errors);
+    Value res = AstMethods::Evaluate(*stmt.expr, *interpreter);
     res = interpreter->GetCurEnvironment().ExtractFromLV(res);
 
     interpreter->GiveOutput(res.ToString());
@@ -49,14 +51,15 @@ define_method(StatementEffect, EvaluateStatement, (const PrintStatement& stmt, I
     return StatementEffect::None;
 }
 
-define_method(StatementEffect, EvaluateStatement, (const BlockStatement& stmt, Interpreter* interpreter)) {
-    interpreter->PushContext(ExecutionContext{stmt.statements});
-
-    return StatementEffect::OpenContext;
+define_method(StatementEffect, EvaluateStatement, (const BlockStatement& block, Interpreter* interpreter)) {
+    interpreter->PushContext(block.statements);
+    interpreter->RunInterface();
+    
+    return StatementEffect::None;
 }
 
 define_method(StatementEffect, EvaluateStatement, (const IfStatement& stmt, Interpreter* interpreter)) {
-    Value res = AstMethods::Evaluate(*stmt.condition, interpreter->GetCurEnvironment(), interpreter->errors);
+    Value res = AstMethods::Evaluate(*stmt.condition, *interpreter);
     res = interpreter->GetCurEnvironment().ExtractFromLV(res);
 
     if (auto type = res.GetType(); type != ValueType::Boolean) {
@@ -79,15 +82,29 @@ define_method(StatementEffect, EvaluateStatement, (const IfStatement& stmt, Inte
 }
 
 define_method(StatementEffect, EvaluateStatement, (const FuncStatement& func, Interpreter* interpreter)) {
-    interpreter->GiveOutput("\nFunc name: " + std::string(func.tokenName.GetRepresentation()));
-    interpreter->GiveOutput("\nParams: ");
+    // interpreter->GiveOutput("\nFunc name: " + std::string(func.tokenName.GetRepresentation()));
+    // interpreter->GiveOutput("\nParams: ");
 
-    for (const Token& param : func.params) {
-        interpreter->GiveOutput(param.GetRepresentation());
-        interpreter->GiveOutput(", ");
-    }
+    // for (const Token& param : func.params) {
+    //     interpreter->GiveOutput(param.GetRepresentation());
+    //     interpreter->GiveOutput(", ");
+    // }
 
-    interpreter->GiveOutput("\nStatements: " + std::to_string(func.statements.size()) + "\n");
+    // interpreter->GiveOutput("\nStatements: " + std::to_string(func.statements.size()) + "\n");
+
+    auto funcValue = Function{
+          .line = func.tokenFunc.line
+        , .name = func.tokenName.GetRepresentation()
+        , .params = {}
+        , .statements = func.statements
+    };
+
+    std::ranges::copy(
+          func.params | std::views::transform(&Token::GetRepresentation)
+        , std::back_inserter(funcValue.params)
+    );
+
+    interpreter->GetCurEnvironment().CreateOrAssignVar(funcValue.name, funcValue, funcValue.line);
 
     return StatementEffect::None;
 }

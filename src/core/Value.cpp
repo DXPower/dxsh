@@ -14,7 +14,8 @@ std::string Value::ToString() const {
         case Decimal:    return std::to_string(std::get<float>(value));
         case String:     return std::get<std::string>(value);
         case Boolean:    return std::get<bool>(value) ? "true" : "false";
-        case Lvalue:     return std::get<core::Lvalue>(value).name;
+        case Lvalue:     return std::string(std::get<core::Lvalue>(value).name);
+        case Function:   return std::format("[Function: {}]", std::get<core::Function>(value).name);
     }
 }
 
@@ -24,12 +25,13 @@ std::string Value::ToPrettyString() const {
     std::string_view name;
 
     switch (GetType()) {
-        case Null:       name = ""; break;
         case Integer:    name = "Integer"; break;
         case Decimal:    name = "Decimal"; break;
         case String:     name = "String"; break;
         case Boolean:    name = "Boolean"; break;
         case Lvalue:     name = "Lvalue"; break;
+        case Function:   return ToString();
+        case Null:       return "(null)";
     }
 
     return std::format("{}: {}", name, ToString());

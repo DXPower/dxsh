@@ -1,5 +1,4 @@
 #include "core/Interpreter.hpp"
-#include "core/Defer.hpp"
 #include "core/ExecutionContext.hpp"
 #include "core/Statement.hpp"
 
@@ -7,46 +6,55 @@ using namespace std::string_literals;
 using namespace dxsh;
 using namespace core;
 
-Interpreter::Interpreter() {
-    defers = std::make_unique<DeferManager>();
-    DeferManager::Inst(*defers);
-}
-
 void Interpreter::LoadProgram(std::span<const std::unique_ptr<Statement>> statements) {
     // Setup the global execution context
     callstack = {};
-    callstack.emplace(statements);
+    PushContext(statements);
 }
 
-std::generator<RuntimeStatus> Interpreter::ExecuteTop(std::span<const std::unique_ptr<Statement>> statements) {
-    while (not callstack.empty()) {
+void Interpreter::LoadInterface(std::function<void ()> interface) {
+    interpreterInterface = std::move(interface);
+}
+
+void Interpreter::RunInterface() {
+    interpreterInterface();
+}
+
+std::generator<RuntimeStatus> Interpreter::ExecuteTopContext() {
+    using enum ExecutionStatus;
+
+    while (true) {
         auto status = callstack.top().ExecuteOne(*this);
 
-        if (status == ExecutionStatus::ERROR) {
-            co_yield RuntimeStatus::Error;
-            co_return;
+        switch (status) {
+            case SUCCESS:
+                co_yield RuntimeStatus::RanStatement;
+                break;
+            case CLOSE:
+                PopContext();
+                co_yield RuntimeStatus::ClosedContext;
+                co_return;
+            case ERROR:
+                co_yield RuntimeStatus::Error;
+                co_return;
         }
-
-        // If an execution context has finished normally, pop it off
-        if (status == ExecutionStatus::CLOSE) {
-            PopContext();
-        }
-
-        co_yield RuntimeStatus::Run;
     }
-
-    co_yield RuntimeStatus::Finish;
 }
 
 Environment& Interpreter::GetCurEnvironment() {
     return callstack.top().environment;
 }
 
-void Interpreter::PushContext(const ExecutionContext& ctx) {
-    Environment& curEnv = GetCurEnvironment();
+ExecutionContext& Interpreter::PushContext(std::span<const std::unique_ptr<Statement>> statements) {
+    ExecutionContext newFrame{statements};
 
-    callstack.push(ctx);
-    callstack.top().environment = curEnv.MakeChild();
+    if (callstack.size() != 0) {
+        Environment& curEnv = GetCurEnvironment();
+        newFrame.environment = curEnv.MakeChild();
+    }
+
+    callstack.push(newFrame);
+    return callstack.top();
 }
 
 void Interpreter::PopContext() {
