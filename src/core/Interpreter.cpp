@@ -23,47 +23,44 @@ void Interpreter::RunInterface() {
 std::generator<RuntimeStatus> Interpreter::ExecuteTopContext() {
     using enum ExecutionStatus;
 
-    while (true) {
-        if (!isExitingFunction) {
-            auto status = callstack.top().ExecuteOne(*this);
+    while (!isExitingFunction) {
+        auto status = callstack.top().ExecuteOne(*this);
 
-            switch (status) {
-                case SUCCESS:
-                    co_yield RuntimeStatus::RanStatement;
-                    break;
-                case CLOSE:
-                    PopContext();
-                    co_yield RuntimeStatus::ClosedContext;
-                    co_return;
-                case EXIT_FUNCTION: {
-                    // Return statement was run, we will reenter this coroutine
-                    // and begin the exit function process
-                    co_yield RuntimeStatus::RanStatement;
-                    isExitingFunction = true;
-                    break;
-                }
-                case ERROR:
-                    co_yield RuntimeStatus::Error;
-                    co_return;
+        switch (status) {
+            case SUCCESS:
+                co_yield RuntimeStatus::RanStatement;
+                break;
+            case CLOSE:
+                PopContext();
+                co_yield RuntimeStatus::ClosedContext;
+                co_return;
+            case EXIT_FUNCTION: {
+                // Return statement was run, we will reenter this coroutine
+                // and begin the exit function process
+                co_yield RuntimeStatus::RanStatement;
+                isExitingFunction = true;
+                break;
             }
-        } else {
-            if (callstack.top().type == ContextType::Script) {
-                errors.push_back(Error{ 
-                      .line = 0
-                    , .message = "Returning from top-level not implemented"});
-
+            case ERROR:
                 co_yield RuntimeStatus::Error;
                 co_return;
-            }
-
-            // Continue to exit the current function until we reach the callstack of said function
-            isExitingFunction = callstack.top().type != ContextType::Function;
-
-            PopContext();
-            co_yield RuntimeStatus::ClosedContext;
-            co_return;
         }
     }
+    
+    if (callstack.top().type == ContextType::Script) {
+        errors.push_back(Error{ 
+                .line = 0
+            , .message = "Returning from top-level not implemented"});
+
+        co_yield RuntimeStatus::Error;
+        co_return;
+    }
+
+    // Continue to exit the current function until we reach the callstack of said function
+    isExitingFunction = callstack.top().type != ContextType::Function;
+
+    PopContext();
+    co_yield RuntimeStatus::ClosedContext;
 }
 
 Environment& Interpreter::GetCurEnvironment() {
