@@ -291,18 +291,23 @@ auto Parser::Unary() -> ExprStore {
 }
 
 auto Parser::Call() -> ExprStore {
-    auto primary = Primary();
+    auto expr = Primary();
 
-    if (not MatchConsume(TokenType::ParenL)) {
-        return primary;
+    // Keep parsing function calls to support things like a()()()
+    while (true) {
+        if (not MatchConsume(TokenType::ParenL)) {
+            break;
+        }
+
+        const auto& parenL = this->Previous();
+        auto args = Arguments();
+
+        TryConsume(TokenType::ParenR, std::format("Expected ) after function call arguments, got '{}' instead", Peek().GetRepresentation()));
+    
+        expr = std::make_unique<CallExpr>(std::move(expr), std::move(args), parenL);
     }
 
-    const auto& parenL = this->Previous();
-    auto args = Arguments();
-
-    TryConsume(TokenType::ParenR, std::format("Expected ) after function call arguments, got '{}' instead", Peek().GetRepresentation()));
-
-    return std::make_unique<CallExpr>(std::move(primary), std::move(args), parenL);
+    return expr;
 }
 
 auto Parser::Arguments() -> std::vector<ExprStore> {

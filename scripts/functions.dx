@@ -62,3 +62,17 @@ print fibb(3);
 print fibb(4);
 print fibb(5);
 print fibb(6);
+
+func choose(name) {
+    if (name == "A") {
+        func A() { print "In A!"; }
+        return A;
+    } else if (name == "B") {
+        func B() { print "In B!"; }
+        return B;
+    }
+}
+
+print "Choices";
+choose("A")();
+choose("B")();
