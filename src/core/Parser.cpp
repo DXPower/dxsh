@@ -69,6 +69,8 @@ auto Parser::Statement() -> StmtStore {
         return IfStmt(); // Return here since if doesn't need semicolon
     } else if (MatchConsume(Function)) {
         return FuncStmt(); // Return here since function doesn't need semicolon
+    } else if (MatchConsume(Return)) {
+        stmt = ReturnStmt();
     } else {
         stmt = ExprStmt();
     }
@@ -188,6 +190,12 @@ auto Parser::FuncStmt() -> StmtStore {
         statements.push_back(Block());
     }
 
+    // Insert a void return statement (return;) if there isn't a
+    // return statement at the end of the function block
+    if (statements.size() == 0 || !dynamic_cast<ReturnStatement*>(statements.back().get())) {
+        statements.push_back(std::make_unique<ReturnStatement>(Peek().line, nullptr));
+    }
+
     TryConsume(
           BraceR
         , std::format(
@@ -201,6 +209,15 @@ auto Parser::FuncStmt() -> StmtStore {
         , funcName
         , std::move(params)
         , std::move(statements)
+    );
+}
+
+auto Parser::ReturnStmt() -> StmtStore {
+    int line = Previous().line;
+
+    return std::make_unique<ReturnStatement>(
+          line
+        , Peek().type != TokenType::Semicolon ? Expression() : nullptr
     );
 }
 

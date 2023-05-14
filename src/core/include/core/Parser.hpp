@@ -16,6 +16,7 @@
 // ifstmt         → "if" "(" expression ")" block
 //                  ( "else" block )?
 // funcstmt       → "func" IDENTIFIER "(" IDENTIFIER* ")" "{" block* "}"
+// returnstmt     → "return" expression ";"
 // exprstmt       → expression ";"
 // expression     → assignment ;
 // assignment     → expression "=" assignment
@@ -65,6 +66,7 @@ namespace dxsh {
             auto IfStmt()      -> StmtStore;
             auto FuncStmt()    -> StmtStore;
             auto ExprStmt()    -> StmtStore;
+            auto ReturnStmt()  -> StmtStore;
             auto Expression()  -> ExprStore;
             auto Assignment()  -> ExprStore;
             auto Equality()    -> ExprStore;

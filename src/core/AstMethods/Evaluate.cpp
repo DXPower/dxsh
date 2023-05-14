@@ -358,7 +358,7 @@ define_method(Value, Evaluate, (const CallExpr& call, Interpreter* interp)) {
     }
 
     // Push a new execution context with the statements of this function
-    auto& ctx = interp->PushContext(function.statements);
+    auto& ctx = interp->PushContext(ContextType::Function, function.statements);
 
     // Populate the parameters with values
     for (std::size_t i = 0; i < function.Arity(); i++) {
@@ -368,7 +368,7 @@ define_method(Value, Evaluate, (const CallExpr& call, Interpreter* interp)) {
     // Execute the body of the function
     interp->RunInterface();
 
-    return Value{};
+    return interp->PopReturn();
 }
 
 Value AstMethods::Evaluate(const Expr& expr, Interpreter& interpreter) {

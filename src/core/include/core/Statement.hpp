@@ -12,9 +12,9 @@ namespace dxsh {
         // execution context
         enum class StatementEffect {
               None 
-            , OpenContext   // Used for opening blocks
             , CloseContext  // Used for break statements
             , InputRequired // Used for input statements
+            , ExitFunction  // Used for return statements
         };
 
         struct Statement {
@@ -95,6 +95,14 @@ namespace dxsh {
             { }
         };
 
+        struct ReturnStatement : Statement {
+            std::unique_ptr<Expr> expr;
+
+            ReturnStatement(int line, decltype(expr)&& expr)
+                : Statement(line)
+                , expr(std::move(expr))
+            { }
+        };
 
         StatementEffect EvaluateStatement(const Statement& stmt, Interpreter& errors);
     }

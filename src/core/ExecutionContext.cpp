@@ -17,9 +17,12 @@ ExecutionStatus ExecutionContext::ExecuteOne(Interpreter& interpreter) {
 
     curPos++;
 
-    // Triggered by break or return statements
+    // Triggered by break
     if (effect == StatementEffect::CloseContext)
         return ExecutionStatus::CLOSE;
+    // Triggered by return
+    else if (effect == StatementEffect::ExitFunction)
+        return ExecutionStatus::EXIT_FUNCTION;
 
     // If we reach the end of this context, trigger a pop of the callstack
     return ExecutionStatus::SUCCESS;

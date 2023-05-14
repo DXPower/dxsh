@@ -26,3 +26,39 @@ factorial(3, 1);
 factorial(4, 1);
 
 print factorial;
+
+func gt(a, b) {
+    if (a > b) {
+        print "a > b";
+        return true;
+    } else if (a < b) {
+        print "a < b";
+        return false;
+    } else {
+        print "a == b";
+        return false;
+    }
+
+    print "shouldn't get here";
+}
+
+print "Computation:";
+print gt(2, 2);
+
+func fibb(n) {
+    if (n == 0)
+        return 0;
+    else if (n == 1)
+        return 1;
+    else
+        return fibb(n - 1) + fibb(n - 2);
+}
+
+print "Fibb";
+print fibb(0);
+print fibb(1);
+print fibb(2);
+print fibb(3);
+print fibb(4);
+print fibb(5);
+print fibb(6);

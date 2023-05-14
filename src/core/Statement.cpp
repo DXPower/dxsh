@@ -19,6 +19,7 @@ register_classes(
     , BlockStatement
     , IfStatement
     , FuncStatement
+    , ReturnStatement
 );
 
 declare_method(StatementEffect, EvaluateStatement, (virtual_<const Statement&>, Interpreter*));
@@ -52,7 +53,7 @@ define_method(StatementEffect, EvaluateStatement, (const PrintStatement& stmt, I
 }
 
 define_method(StatementEffect, EvaluateStatement, (const BlockStatement& block, Interpreter* interpreter)) {
-    interpreter->PushContext(block.statements);
+    interpreter->PushContext(ContextType::Scope, block.statements);
     interpreter->RunInterface();
     
     return StatementEffect::None;
@@ -108,6 +109,21 @@ define_method(StatementEffect, EvaluateStatement, (const FuncStatement& func, In
 
     return StatementEffect::None;
 }
+
+define_method(StatementEffect, EvaluateStatement, (const ReturnStatement& stmt, Interpreter* interpreter)) {
+    Value returnValue;
+
+    if (stmt.expr) {
+        // Return with value
+        returnValue = AstMethods::Evaluate(*stmt.expr, *interpreter);
+        returnValue = interpreter->GetCurEnvironment().ExtractFromLV(returnValue);
+    }
+
+    interpreter->PushReturn(returnValue);
+
+    return StatementEffect::ExitFunction;
+}
+
 
 StatementEffect core::EvaluateStatement(const Statement& stmt, Interpreter& interpreter) {
     try {

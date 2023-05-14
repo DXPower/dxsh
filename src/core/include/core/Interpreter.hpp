@@ -20,7 +20,9 @@ namespace dxsh {
         class Interpreter {
             std::stringstream input, output;
             std::stack<ExecutionContext> callstack;
+            std::stack<Value> returnValues;
             std::function<void(void)> interpreterInterface;
+            bool isExitingFunction{};
 
             public:
             ErrorContext errors;
@@ -32,9 +34,14 @@ namespace dxsh {
 
             std::generator<RuntimeStatus> ExecuteTopContext();
             
-            ExecutionContext& PushContext(std::span<const std::unique_ptr<Statement>> statements);
+            ExecutionContext& PushContext(ContextType type, std::span<const std::unique_ptr<Statement>> statements);
             void PopContext();
-            
+
+            // Push a return value into the interpreter's stack, defaults to null
+            void PushReturn(Value v = {});
+            Value PopReturn();
+            bool IsExitingFunction() const { return isExitingFunction; };
+
             Environment& GetCurEnvironment();
             
 
